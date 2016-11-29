@@ -2,10 +2,11 @@
 
 function usage {
   echo "Reserve ressources. Options:
-    -c, cluster names (e.g., 'graphene griffon')
+    -c, cluster names (-c 'graphene griffon')
     -d, date of the reservation
     -h, this help
     -l, display default values
+    -m, reserve specific nodes from their name (-m 'econome-7 econome-20)
     -n, number of nodes
     -o, hour of the reservation
     -t, duration of the experiment
@@ -23,8 +24,17 @@ DATE=$(date +%F)
 HOUR=$(date +%H:%M:%S)
 # Clusters
 CLUSTER="none"
+NODE_NAMES="none"
+OARNODES_FILE="/tmp/remy/oarnodes-reserve.txt"
+RESERVATION_FILE="/tmp/remy/oarsub-reserve.txt"
 
-while getopts c:d:hln:o:t: name; do
+if [ ! -d /tmp/remy ]; then
+  mkdir /tmp/remy
+fi
+
+rm -f $RESERVATION_FILE $OARNODES_FILE
+
+while getopts c:d:hlm:n:o:t: name; do
 	case $name in
     c)
       CLUSTER=$OPTARG
@@ -43,6 +53,29 @@ while getopts c:d:hln:o:t: name; do
         Cluster requested: $CLUSTER"
       exit 0
     ;;
+    m)
+      # "network_address in ('econome-22.nantes.grid5000.fr', 'econome-17.nantes.grid5000.fr')"
+      grep_option=""
+      oarnodes | grep 'network_address :' | sort | uniq | awk '$3!=""{print $3}' > $OARNODES_FILE
+      NODE_NAMES="network_address in ("
+      NB_NODES=0
+      for node in $OPTARG; do
+        NB_NODES=$(( $NB_NODES + 1 ))
+        n=$(cat $OARNODES_FILE | grep "$node\.")
+        error=""
+        if [ -z "$n" ]; then
+          error="$error $node"
+        else
+          NODE_NAMES="$NODE_NAMES'$n',"
+        fi
+      done
+      if [ -z "$error" ]; then
+        NODE_NAMES="${NODE_NAMES::-1})"
+      else
+        echo "Can not found the following nodes from oarnodes: $error"
+        exit 0
+      fi
+    ;;
     n)
       NB_NODES=$OPTARG
     ;;
@@ -60,8 +93,29 @@ while getopts c:d:hln:o:t: name; do
 done
 
 if [ $CLUSTER == "none" ];then
-  oarsub -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" -t allow_classic_ssh -t deploy &> nodes.txt
+  if [ "$NODE_NAMES" == "none" ]; then
+    oarsub -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" \
+      -t allow_classic_ssh -t deploy &> $RESERVATION_FILE
+  else
+    oarsub -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -p "$NODE_NAMES" -r "$DATE $HOUR" \
+      -t allow_classic_ssh -t deploy &> $RESERVATION_FILE
+  fi
 else
-  oarsub -p "cluster='$CLUSTER'" -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" -t allow_classic_ssh -t deploy &> nodes.txt
+  if [ "$NODE_NAMES" == "none" ]; then
+    oarsub -p "cluster='$CLUSTER'" -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" \
+      -t allow_classic_ssh -t deploy &> $RESERVATION_FILE
+  else
+    echo "Incompatible options: can not specify node names (-m option) \
+      and cluster name (-c option) in the same command"
+  fi
 fi
+
+echo "Waiting for the job"
+JOB_ID=$(cat $RESERVATION_FILE | grep OAR_JOB_ID | awk 'BEGIN {FS="="}; {print $2}')
+while [ "$(oarstat -fj $JOB_ID | grep state |  awk 'BEGIN {FS="="}; {gsub(" ", "", $2); print $2}')" \
+  != "Running" ]; do
+  echo "Waiting for the job"
+  sleep 20
+done
+echo "Your job is running with the ID $JOB_ID"
 

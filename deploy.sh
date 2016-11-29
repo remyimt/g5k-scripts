@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ENVIRONMENT="jessie-x64-base"
-MACHINE_FILE="node2deploy.txt"
+MACHINE_FILE="/tmp/remy/node2deploy.txt"
 JOB_ID=""
 
 function usage {
@@ -58,20 +58,21 @@ if [ ! -e "$MACHINE_FILE" ]; then
   if [ -z "$JOB_ID" ]; then
     JOB_ID=$(oarstat -u | grep $(whoami) | awk '{print $1}')
   fi
-  if [ $JOB_ID == "all"]; then
-      for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
-        oarstat -fj $jobid | grep assigned_hostnames | awk '{print $ 3}' \
-          | tr "+" "\n" | sed "s:^:    :" >> $MACHINE_FILE
-      done
-    exit 0
+  echo "Use the job $JOB_ID"
+  if [ $JOB_ID == "all" ]; then
+    echo "Using all jobs for the deployment"
+    for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
+      oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}' \
+        | tr "+" "\n" | sed "s:^:    :" >> $MACHINE_FILE
+    done
   else
     if [ $(echo $JOB_ID | wc -l) -ne 1 ]; then
       echo "More than one job is detected. Please select your job or use '-j all'"
     else
-      oarstat -fj $jobid | grep assigned_hostnames | awk '{print $ 3}'| tr "+" "\n" | sed "s:^:    :" > $MACHINE_FILE
+      oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}'| tr "+" "\n" | sed "s:^:    :" > $MACHINE_FILE
     fi
   fi
 fi
-echo "Deploying '$ENVIRONMENT' to $(wc -l $MACHINE_FILE) nodes"
+echo "Deploying '$ENVIRONMENT' to $(wc -l $MACHINE_FILE | awk '{ print $1 }') nodes"
 kadeploy3 -f $MACHINE_FILE -e $ENVIRONMENT -k
 
