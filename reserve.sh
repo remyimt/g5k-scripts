@@ -2,14 +2,15 @@
 
 function usage {
   echo "Reserve ressources. Options:
+    -a, select the admin queue
     -c, cluster names (-c 'graphene griffon')
-    -d, date of the reservation
+    -d, day of the reservation (YYYY-MM-DD)
     -h, this help
     -l, display default values
     -m, reserve specific nodes from their name (-m 'econome-7 econome-20)
     -n, number of nodes
-    -o, hour of the reservation
-    -t, duration of the experiment
+    -o, hour of the reservation (HH:MM:SS)
+    -t, duration of the experiment (hour)
 "
 exit 0
 }
@@ -25,6 +26,7 @@ HOUR=$(date +%H:%M:%S)
 # Clusters
 CLUSTER="none"
 NODE_NAMES="none"
+QUEUE=""
 OARNODES_FILE="/tmp/remy/oarnodes-reserve.txt"
 RESERVATION_FILE="/tmp/remy/oarsub-reserve.txt"
 
@@ -34,8 +36,11 @@ fi
 
 rm -f $RESERVATION_FILE $OARNODES_FILE
 
-while getopts c:d:hlm:n:o:t: name; do
+while getopts ac:d:hlm:n:o:t: name; do
 	case $name in
+    a)
+      QUEUE=" -q admin "
+    ;;
     c)
       CLUSTER=$OPTARG
     ;;
@@ -92,17 +97,19 @@ while getopts c:d:hlm:n:o:t: name; do
 	esac
 done
 
+echo "DEBUG: nb: $NB_NODES, time: $EXPERIMENT_TIME, date: $DATE $HOUR"
+
 if [ $CLUSTER == "none" ];then
   if [ "$NODE_NAMES" == "none" ]; then
-    oarsub -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" \
+    oarsub $QUEUE -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" \
       -t allow_classic_ssh -t deploy &> $RESERVATION_FILE
   else
-    oarsub -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -p "$NODE_NAMES" -r "$DATE $HOUR" \
+    oarsub $QUEUE -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -p "$NODE_NAMES" -r "$DATE $HOUR" \
       -t allow_classic_ssh -t deploy &> $RESERVATION_FILE
   fi
 else
   if [ "$NODE_NAMES" == "none" ]; then
-    oarsub -p "cluster='$CLUSTER'" -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" \
+    oarsub $QUEUE -p "cluster='$CLUSTER'" -l nodes=$NB_NODES,walltime=$EXPERIMENT_TIME -r "$DATE $HOUR" \
       -t allow_classic_ssh -t deploy &> $RESERVATION_FILE
   else
     echo "Incompatible options: can not specify node names (-m option) \
@@ -112,10 +119,25 @@ fi
 
 echo "Waiting for the job"
 JOB_ID=$(cat $RESERVATION_FILE | grep OAR_JOB_ID | awk 'BEGIN {FS="="}; {print $2}')
+if [ -z "$JOB_ID" ]; then
+  echo "ERROR: Can not retrieve the job ID from $RESERVATION_FILE"
+  exit 13
+fi
+
+echo "DEBUG: Loop on  'oarstat -fj $JOB_ID'"
+expectedStart=$(date -d '2017-01-16 14:00:00' +%s)
+oarState="Running"
+
+if [ $(( $expectedStart - $(date +%s) )) > 3600 ]; then
+  oarState="Waiting"
+fi
+
 while [ "$(oarstat -fj $JOB_ID | grep state |  awk 'BEGIN {FS="="}; {gsub(" ", "", $2); print $2}')" \
-  != "Running" ]; do
+  != $oarState ]; do
   echo "Waiting for the job"
   sleep 20
 done
-echo "Your job is running with the ID $JOB_ID"
+
+echo "Your job will start at $(oarstat -fj $JOB_ID | grep startTime | awk '{print $3 " " $4}') \
+  with the ID $JOB_ID"
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ENVIRONMENT="jessie-x64-base"
+ENVIRONMENT="jessie-x64-big"
 MACHINE_FILE="/tmp/remy/node2deploy.txt"
 JOB_ID=""
 
@@ -17,7 +17,7 @@ exit 0
 
 rm -f $MACHINE_FILE
 
-while getopts e:him: name; do
+while getopts e:hij:m: name; do
 	case $name in
     e)
       ENVIRONMENT=$OPTARG
