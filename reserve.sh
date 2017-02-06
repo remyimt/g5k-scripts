@@ -97,7 +97,7 @@ while getopts ac:d:hlm:n:o:t: name; do
 	esac
 done
 
-echo "DEBUG: nb: $NB_NODES, time: $EXPERIMENT_TIME, date: $DATE $HOUR"
+echo "INFO: nb: $NB_NODES, time: $EXPERIMENT_TIME, date: $DATE $HOUR"
 
 if [ $CLUSTER == "none" ];then
   if [ "$NODE_NAMES" == "none" ]; then
@@ -117,26 +117,31 @@ else
   fi
 fi
 
-echo "Waiting for the job"
+echo "Retrieving the job ID"
 JOB_ID=$(cat $RESERVATION_FILE | grep OAR_JOB_ID | awk 'BEGIN {FS="="}; {print $2}')
 if [ -z "$JOB_ID" ]; then
   echo "ERROR: Can not retrieve the job ID from $RESERVATION_FILE"
   exit 13
 fi
 
-echo "DEBUG: Loop on  'oarstat -fj $JOB_ID'"
-expectedStart=$(date -d '2017-01-16 14:00:00' +%s)
-oarState="Running"
-
-if [ $(( $expectedStart - $(date +%s) )) > 3600 ]; then
-  oarState="Waiting"
+echo "Checking the state of the job $JOB_ID"
+echo "Executing 'oarstat -fj $JOB_ID'"
+job_state=$(oarstat -fj $JOB_ID | grep state | grep Error)
+if [ ! -z "$job_state" ]; then
+  echo "Job failure: more details from 'cat $RESERVATION_FILE'"
+  exit 13
 fi
 
-while [ "$(oarstat -fj $JOB_ID | grep state |  awk 'BEGIN {FS="="}; {gsub(" ", "", $2); print $2}')" \
-  != $oarState ]; do
-  echo "Waiting for the job"
-  sleep 20
-done
+sDate=$(oarstat -fj $JOB_ID | grep scheduledStart | awk '{print $3,$4}')
+expectedStart=$(date -d "$sDate" +%s)
+if [ $(( $expectedStart - $(date +%s))) -lt 1800 ]; then
+  # Wait for the job is running
+  while [ "$(oarstat -fj $JOB_ID | grep state |  awk 'BEGIN {FS="="}; {gsub(" ", "", $2); print $2}')" \
+    != "Running" ]; do
+    echo "Waiting for the job"
+    sleep 20
+  done
+fi
 
 echo "Your job will start at $(oarstat -fj $JOB_ID | grep startTime | awk '{print $3 " " $4}') \
   with the ID $JOB_ID"
