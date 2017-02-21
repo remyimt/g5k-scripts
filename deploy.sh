@@ -1,6 +1,7 @@
 #!/bin/bash
 
-ENVIRONMENT="jessie-x64-big"
+# Jessie environment with g5k tools
+ENVIRONMENT="jessie-x64-std"
 MACHINE_FILE="/tmp/remy/node2deploy.txt"
 JOB_ID=""
 
@@ -54,25 +55,35 @@ done
 
 echo "Deploying '$ENVIRONMENT' to the current job"
 if [ ! -e "$MACHINE_FILE" ]; then
-  # Generate $MACHINE_FILE from job id
+  # Generate $MACHINE_FILE from the job ID
   if [ -z "$JOB_ID" ]; then
-    JOB_ID=$(oarstat -u | grep $(whoami) | awk '{print $1}')
+    echo "Retrieving the JOB_ID"
+    nb_job=$(oarstat -u | grep $(whoami) | wc -l)
+    if [ $nb_job -eq 1 ]; then
+      JOB_ID=$(oarstat -u | grep $(whoami) | awk '{print $1}')
+    else
+      echo "ERROR: Wrong number of jobs (expected=1, found=$nb_job)"
+      if [ $nb_job -gt 0 ]; then
+        echo "Tips: You can deploy the environment on multiple jobs with the '-j all' option"
+      fi
+      exit 13
+    fi
   fi
   echo "Use the job $JOB_ID"
-  if [ $JOB_ID == "all" ]; then
+  if [ "$JOB_ID" == "all" ]; then
     echo "Using all jobs for the deployment"
     for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
       oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}' \
         | tr "+" "\n" | sed "s:^:    :" >> $MACHINE_FILE
     done
   else
-    if [ $(echo $JOB_ID | wc -l) -ne 1 ]; then
-      echo "More than one job is detected. Please select your job or use '-j all'"
-    else
-      oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}'| tr "+" "\n" | sed "s:^:    :" > $MACHINE_FILE
-    fi
+      oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}'| tr "+" "\n" | sed "s:^:    :" \
+        > $MACHINE_FILE
   fi
 fi
 echo "Deploying '$ENVIRONMENT' to $(wc -l $MACHINE_FILE | awk '{ print $1 }') nodes"
 kadeploy3 -f $MACHINE_FILE -e $ENVIRONMENT -k
+
+rm -rf oarnodes
+ln -s $MACHINE_FILE oarnodes
 
