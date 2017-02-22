@@ -119,7 +119,7 @@ fi
 
 echo "Retrieving the job ID"
 JOB_ID=$(cat $RESERVATION_FILE | grep OAR_JOB_ID | awk 'BEGIN {FS="="}; {print $2}')
-if [ -z "$JOB_ID" ]; then
+if [ -z "$JOB_ID" -o "$JOB_ID" -lt 0 ]; then
   echo "ERROR: Can not retrieve the job ID from $RESERVATION_FILE"
   exit 13
 fi
