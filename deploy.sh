@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Jessie environment with g5k tools
-ENVIRONMENT="jessie-x64-std"
+ENVIRONMENT="jessie-x64-min"
 MACHINE_FILE="/tmp/remy/node2deploy.txt"
 JOB_ID=""
 
@@ -53,9 +53,7 @@ while getopts e:hij:m: name; do
 	esac
 done
 
-echo "Deploying '$ENVIRONMENT' to the current job"
-if [ ! -e "$MACHINE_FILE" ]; then
-  # Generate $MACHINE_FILE from the job ID
+if [ ! -e $MACHINE_FILE ]; then
   if [ -z "$JOB_ID" ]; then
     echo "Retrieving the JOB_ID"
     nb_job=$(oarstat -u | grep $(whoami) | wc -l)
@@ -69,21 +67,42 @@ if [ ! -e "$MACHINE_FILE" ]; then
       exit 13
     fi
   fi
-  echo "Use the job $JOB_ID"
-  if [ "$JOB_ID" == "all" ]; then
-    echo "Using all jobs for the deployment"
-    for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
-      oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}' \
+
+  if [ "$JOB_ID" == 'all' ]; then
+    JOB_ID=""
+    echo "Retrieving all job ID"
+      for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
+        JOB_ID="$JOB_ID $jobid"
+      done
+  fi
+
+  if [ -z "$JOB_ID" ]; then
+    echo "ERROR: Job id not found!"
+    exit 13
+  fi
+
+  echo "Checking the state of every job"
+  for jobid in $(echo $JOB_ID); do
+    state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
+    while [ $state != 'Running' ]; do
+      state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
+      echo "Wait for the job $jobid is running"
+      sleep 30
+    done
+    echo "Job $jobid is running"
+  done
+
+  echo "Selecting the nodes"
+  if [ ! -e "$MACHINE_FILE" ]; then
+    # Generate $MACHINE_FILE from the job ID
+    for jobid in $(echo $JOB_ID); do
+      echo "Use the job $jobid"
+      oarstat -fj $jobid | grep assigned_hostnames | awk '{print $ 3}' \
         | tr "+" "\n" | sed "s:^:    :" >> $MACHINE_FILE
     done
-  else
-      oarstat -fj $JOB_ID | grep assigned_hostnames | awk '{print $ 3}'| tr "+" "\n" | sed "s:^:    :" \
-        > $MACHINE_FILE
   fi
 fi
+
 echo "Deploying '$ENVIRONMENT' to $(wc -l $MACHINE_FILE | awk '{ print $1 }') nodes"
 kadeploy3 -f $MACHINE_FILE -e $ENVIRONMENT -k
-
-rm -rf oarnodes
-ln -s $MACHINE_FILE oarnodes
 
