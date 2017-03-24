@@ -26,19 +26,6 @@ NODES_FILE = '%s/oarnodes-reserve.txt' % TMP_DIR
 site = None
 clusters_site = []
 nodes_site = {}
-p = subprocess.Popen('oarnodes -l', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-p.stdout.flush()
-for line in  p.stdout:
-    # Remove empty lines
-    if len(line) > 2:
-        dotsplit = line.split('.')
-        if site is None:
-            site = dotsplit[1]
-        cluster = line.split('-')[0]
-        if cluster not in clusters_site:
-            clusters_site.append(cluster)
-        if line not in nodes_site:
-            nodes_site[dotsplit[0]] = line.strip()
 
 def usage(return_code):
     print 'Reserve resources on grid5000. Options:'
@@ -66,12 +53,28 @@ def select_queue(cluster_name):
     data.remove('admin')
     return data[0]
 
+# Retrieve site name, cluster names and node names
+p = subprocess.Popen('oarnodes -l', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+p.stdout.flush()
+for line in  p.stdout:
+    # Remove empty lines
+    if len(line) > 2:
+        dotsplit = line.split('.')
+        if site is None:
+            site = dotsplit[1]
+        cluster = line.split('-')[0]
+        if cluster not in clusters_site:
+            clusters_site.append(cluster)
+        if line not in nodes_site:
+            nodes_site[dotsplit[0]] = line.strip()
+
 # Remove first argument (name of the script)
 sys.argv = sys.argv[1:]
 # Create temporary directory
 if not os.path.exists(TMP_DIR):
     os.mkdir(TMP_DIR)
 # Parse arguments to modify default values
+#TODO: Add the -b to reserve in the besteffort queue
 try:
     opts, args = getopt.getopt(sys.argv, "ac:d:hlm:n:qt:", ["noapi"])
 except getopt.GetoptError:
