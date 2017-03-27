@@ -16,7 +16,7 @@ import MySQLdb
 
 # Variables
 # Save the monitoring values to the database
-database_backend = True
+database_backend = False
 db_user = 'root'
 db_password = 'strangehat'
 db_name = 'pdu'
@@ -160,23 +160,17 @@ if len(node_filter) > 0:
         sys.exit()
 
 # Retrieve the UID of PDU
-pdu_uids = []
-if pdu_description:
-    for pdu in json.load(open(PDU_FILE, 'r'))['items']:
-        if pdu['uid'] in outlet_map:
-            pdu_uids.append(pdu['uid'])
-        else:
-            print 'WARNING: Remove the PDU \'%s\' because it has no description' % pdu['uid']
-else:
-    pdu_uids.append(pdu['uid'])
- 
 while True:
-    for uid in pdu_uids:
-        if len(pdu_filter) == 0 or uid in pdu_filter:
-            createPdu(uid)
+    results = {}
+    for pdu in json.load(open(PDU_FILE, 'r'))['items']:
+        if pdu_description and pdu['uid'] not in outlet_map:
+            print "==== %s ====" % pdu['uid']
+            print 'WARNING: [%s] Ignore this PDU because it has no description' % pdu['uid']
+        elif len(pdu_filter) == 0 or pdu['uid'] in pdu_filter:
+            createPdu(pdu['uid'])
             total += 1
-            print "==== %s ====" % uid
-            if ping(uid):
+            print "==== %s ====" % pdu['uid']
+            if ping(pdu['uid']):
                 power = pdu['sensors'][0]['power']
                 if 'snmp' in power:
                     if power['per_outlets']:
@@ -189,7 +183,7 @@ while True:
                     try:
                         cmd = nextCmd(SnmpEngine(),
                             CommunityData('public', mpModel=0),
-                            UdpTransportTarget((uid, 161)),
+                            UdpTransportTarget((pdu['uid'], 161)),
                             ContextData(),
                             ObjectType(ObjectIdentity(origin))
                             )
@@ -199,28 +193,31 @@ while True:
                             oid = str(data[0][0])
                             must_continue = compareEnd(oid, origin)
                             if must_continue:
-                                addValue(uid, int(data[0][1]))
+                                addValue(pdu['uid'], int(data[0][1]))
                         # Detect errors in monitoring values
                         if outlets:
-                            if len(results[uid]) < 2:
+                            if len(results[pdu['uid']]) < 2:
                                 failed += 1
                                 log("[%s] Not enough values, %d values for PDU" % 
-                                        (uid, len(results[uid])))
+                                        (pdu['uid'], len(results[pdu['uid']])))
                         else:
                             # It is assumed that every PDU has at least 8 outlets
-                            if len(results[uid]) > 7:
+                            if len(results[pdu['uid']]) > 7:
                                 failed += 1
                                 log("[%s] Not enough values, %d values for PDU" % 
-                                        (uid, len(results[uid])))
+                                        (pdu['uid'], len(results[pdu['uid']])))
                     except Exception as e:
                         failed += 1
-                        log("[%s] Fail to process monitoring values: %s" % (uid, e))
+                        log("[%s] Fail to process monitoring values: %s" % (pdu['uid'], e))
                         traceback.print_exc(file=sys.stdout)
             else:
                 failed += 1
-                log("ERROR: [%s] Unreachable PDU" % uid)
+                log("ERROR: [%s] Unreachable PDU" % pdu['uid'])
     # Wait before retrieving consumption again
     print 'Sleeping %d seconds' % sleep_time
     time.sleep(sleep_time)
+    if not database_backend:
+        for pdu in sorted(results):
+            print '[%s]: %s' % (pdu, results[pdu])
 log("test#: %d, failure#: %d, good#: %d" % (total, failed, total - failed))
 
