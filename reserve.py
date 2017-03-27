@@ -18,14 +18,8 @@ clusters = []
 nodes = []
 queues = {}
 queue_selection = False
-# oarsub logs
+# Directory to store temporary files
 TMP_DIR = '/tmp/tools'
-OARSUB_FILE = '%s/oarsub-reserve.txt' % TMP_DIR
-NODES_FILE = '%s/oarnodes-reserve.txt' % TMP_DIR
-# Get the site name and the cluster names
-site = None
-clusters_site = []
-nodes_site = {}
 
 def usage(return_code):
     print 'Reserve resources on grid5000. Options:'
@@ -53,7 +47,10 @@ def select_queue(cluster_name):
     data.remove('admin')
     return data[0]
 
-# Retrieve site name, cluster names and node names
+# Get the site name and the cluster names
+site = None
+clusters_site = []
+nodes_site = {}
 p = subprocess.Popen('oarnodes -l', stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 p.stdout.flush()
 for line in  p.stdout:
@@ -70,11 +67,12 @@ for line in  p.stdout:
 
 # Remove first argument (name of the script)
 sys.argv = sys.argv[1:]
+
 # Create temporary directory
 if not os.path.exists(TMP_DIR):
     os.mkdir(TMP_DIR)
+
 # Parse arguments to modify default values
-#TODO: Add the -b to reserve in the besteffort queue
 try:
     opts, args = getopt.getopt(sys.argv, "ac:d:hlm:n:qt:", ["noapi"])
 except getopt.GetoptError:
