@@ -2,7 +2,8 @@
 
 # Jessie environment with g5k tools
 ENVIRONMENT="jessie-x64-min"
-MACHINE_FILE="/tmp/remy/node2deploy.txt"
+TMP_DIR="/tmp/tools"
+MACHINE_FILE="$TMP_DIR/node2deploy.txt"
 JOB_ID=""
 
 function usage {
@@ -16,6 +17,9 @@ function usage {
 exit 0
 }
 
+if [ ! -d "$TMP_DIR" ]; then
+  mkdir $TMP_DIR
+fi
 rm -f $MACHINE_FILE
 
 while getopts e:hij:m: name; do
@@ -85,9 +89,9 @@ if [ ! -e $MACHINE_FILE ]; then
   for jobid in $(echo $JOB_ID); do
     state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
     while [ $state != 'Running' ]; do
-      state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
       echo "Wait for the job $jobid is running"
       sleep 30
+      state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
     done
     echo "Job $jobid is running"
   done
@@ -105,4 +109,5 @@ fi
 
 echo "Deploying '$ENVIRONMENT' to $(wc -l $MACHINE_FILE | awk '{ print $1 }') nodes"
 kadeploy3 -f $MACHINE_FILE -e $ENVIRONMENT -k
+echo "Nodes are listed in $MACHINE_FILE"
 
