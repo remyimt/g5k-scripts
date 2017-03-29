@@ -5,7 +5,7 @@ SITE='nancy'
 DATE=$(date +%F-%Hh)
 DUMP_FOLDER='dumps'
 
-if [ -d $DUMP_FOLDER ]; then
+if [ ! -d $DUMP_FOLDER ]; then
   mkdir $DUMP_FOLDER
 fi
 ssh root@$NODE_NAME "mysqldump -uroot -pstrangehat pdu > $DATE-$SITE.db"
