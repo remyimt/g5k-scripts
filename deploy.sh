@@ -35,7 +35,8 @@ while getopts e:hij:m: name; do
         echo "---"
         echo "Job information"
         oarstat -fj $jobid \
-          | grep 'job_array_id \| state \| startTime \| walltime' | grep -v "REDUCE_RESERVATION_WALLTIME"
+          | grep 'job_array_id \| state \| startTime \| walltime \| scheduledStart' \
+          | grep -v "REDUCE_RESERVATION_WALLTIME"
         echo "Nodes"
         oarstat -fj $jobid | grep assigned_hostnames | awk '{print $ 3}'| tr "+" "\n" | sed "s:^:    :"
       done
