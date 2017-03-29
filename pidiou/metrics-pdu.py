@@ -16,7 +16,7 @@ import MySQLdb
 
 # Variables
 # Save the monitoring values to the database
-database_backend = False
+database_backend = True
 db_user = 'root'
 db_password = 'strangehat'
 db_name = 'pdu'
