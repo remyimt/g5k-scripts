@@ -79,7 +79,7 @@ except getopt.GetoptError:
     usage(13)
 for opt, arg in opts:
     if opt == '-a':
-        queues = { 'all': 'admin' }
+        queues['admin'] = {'filter': [], 'clusters': [], 'nodes': []}
     elif opt == '-c':
         clusters = arg.split(' ')
     elif opt == '-d':
@@ -168,8 +168,11 @@ for c in clusters:
         # Select the appropriate queue from the grid5000 API
         myqueue = select_queue(c)
     else:
-        # Add nodes to the default queue
-        myqueue = 'default'
+        if 'admin' in queues:
+            myqueue = 'admin'
+        else:
+            # Add nodes to the default queue
+            myqueue = 'default'
     if myqueue not in queues:
         queues[myqueue] = {'filter': [], 'clusters': [], 'nodes': []}
     queues[myqueue]['filter'].append(c)
