@@ -2,7 +2,7 @@
 
 # Jessie environment with g5k tools
 ENVIRONMENT="jessie-x64-min"
-TMP_DIR="/tmp/tools"
+TMP_DIR="~/g5kfiles"
 MACHINE_FILE="$TMP_DIR/node2deploy.txt"
 JOB_ID=""
 

@@ -19,7 +19,7 @@ nodes = []
 queues = {}
 queue_selection = False
 # Directory to store temporary files
-TMP_DIR = '/tmp/tools'
+TMP_DIR = '~/g5kfiles'
 
 def usage(return_code):
     print 'Reserve resources on grid5000. Options:'
@@ -258,7 +258,7 @@ for q in queues:
             print '  Reservation Date: %s' % reservation
     else:
         # Execute the oarsub command
-        cmd = 'oarsub %s %s -l nodes=%d,walltime=%d %s %s -t allow_classic_ssh %s' % (
+        cmd = 'oarsub %s %s -l nodes=%d,walltime=%d %s %s %s' % (
                 queue_arg, cluster_arg, nb_nodes, experiment_time, nodenames_arg, reservation_arg, deploy_arg)
         p = subprocess.Popen(cmd, shell=True)
         p.wait()
