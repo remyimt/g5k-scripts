@@ -2,7 +2,8 @@
 
 # Jessie environment with g5k tools
 ENVIRONMENT="jessie-x64-min"
-TMP_DIR="~/g5kfiles"
+USER_NAME=$(whoami)
+TMP_DIR="/home/$USER_NAME/.g5k-scripts"
 MACHINE_FILE="$TMP_DIR/node2deploy.txt"
 JOB_ID=""
 
@@ -11,7 +12,7 @@ function usage {
     -e, environment name (See 'kaenv3 -l')
     -h, this help
     -i, display information about jobs
-    -j, job id to use for the deployment (use -j all to deploy on all jobs)
+    -j, job id to use for the deployment (use '-j all' to deploy on all jobs)
     -m, use machine names (-m 'econome-5 econome-10')
 "
 exit 0
@@ -31,7 +32,7 @@ while getopts e:hij:m: name; do
 		  usage
 		;;
     i)
-      for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
+      for jobid in $(oarstat -u | grep $USER_NAME | awk '{print $1}'); do
         echo "---"
         echo "Job information"
         oarstat -fj $jobid \
@@ -59,15 +60,16 @@ while getopts e:hij:m: name; do
 done
 
 if [ ! -e $MACHINE_FILE ]; then
+  # Generate the $MACHINE_FILE from JOB_ID
   if [ -z "$JOB_ID" ]; then
     echo "Retrieving the JOB_ID"
-    nb_job=$(oarstat -u | grep $(whoami) | wc -l)
+    nb_job=$(oarstat -u | grep $USER_NAME | wc -l)
     if [ $nb_job -eq 1 ]; then
-      JOB_ID=$(oarstat -u | grep $(whoami) | awk '{print $1}')
+      JOB_ID=$(oarstat -u | grep $USER_NAME | awk '{print $1}')
     else
-      echo "ERROR: Wrong number of jobs (expected=1, found=$nb_job)"
+      echo "  ERROR: Wrong number of jobs (expected=1, found=$nb_job)"
       if [ $nb_job -gt 0 ]; then
-        echo "Tips: You can deploy the environment on multiple jobs with the '-j all' option"
+        echo "  Tips: You can deploy the environment on multiple jobs with the '-j all' option"
       fi
       exit 13
     fi
@@ -76,7 +78,7 @@ if [ ! -e $MACHINE_FILE ]; then
   if [ "$JOB_ID" == 'all' ]; then
     JOB_ID=""
     echo "Retrieving all job ID"
-      for jobid in $(oarstat -u | grep $(whoami) | awk '{print $1}'); do
+      for jobid in $(oarstat -u | grep $USER_NAME | awk '{print $1}'); do
         JOB_ID="$JOB_ID $jobid"
       done
   fi
@@ -90,22 +92,20 @@ if [ ! -e $MACHINE_FILE ]; then
   for jobid in $(echo $JOB_ID); do
     state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
     while [ $state != 'Running' ]; do
-      echo "Wait for the job $jobid is running"
+      echo "  Wait for the job $jobid is running"
       sleep 30
       state=$(oarstat -fj $jobid | grep 'state' | awk '{ print $3 }')
     done
-    echo "Job $jobid is running"
+    echo "  Job $jobid is running"
   done
 
   echo "Selecting the nodes"
-  if [ ! -e "$MACHINE_FILE" ]; then
-    # Generate $MACHINE_FILE from the job ID
-    for jobid in $(echo $JOB_ID); do
-      echo "Use the job $jobid"
-      oarstat -fj $jobid | grep assigned_hostnames | awk '{print $ 3}' \
-        | tr "+" "\n" | sed "s:^:    :" >> $MACHINE_FILE
-    done
-  fi
+  # Generate $MACHINE_FILE from the job ID
+  for jobid in $(echo $JOB_ID); do
+    echo "  Use the job $jobid"
+    oarstat -fj $jobid | grep assigned_hostnames | awk '{print $ 3}' \
+      | tr "+" "\n" | sed "s:^:    :" >> $MACHINE_FILE
+  done
 fi
 
 echo "Deploying '$ENVIRONMENT' to $(wc -l $MACHINE_FILE | awk '{ print $1 }') nodes"

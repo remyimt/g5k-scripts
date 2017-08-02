@@ -4,13 +4,14 @@ import datetime
 import getopt
 import json
 import os
+import shutil
 import subprocess
 import sys
 import urllib2
 
 # Default values
 display = False
-nb_nodes = 3
+nb_nodes = 1
 nb_nodes_option = False
 experiment_time = 2
 reservation = None
@@ -19,7 +20,8 @@ nodes = []
 queues = {}
 queue_selection = False
 # Directory to store temporary files
-TMP_DIR = '~/g5kfiles'
+user = subprocess.check_output('whoami', shell=True)
+TMP_DIR = '/home/%s/.g5k-scripts' % user[:-1]
 
 def usage(return_code):
     print 'Reserve resources on grid5000. Options:'
@@ -69,8 +71,9 @@ for line in  p.stdout:
 sys.argv = sys.argv[1:]
 
 # Create temporary directory
-if not os.path.exists(TMP_DIR):
-    os.mkdir(TMP_DIR)
+if os.path.exists(TMP_DIR):
+    shutil.rmtree(TMP_DIR)
+os.mkdir(TMP_DIR)
 
 # Parse arguments to modify default values
 try:
