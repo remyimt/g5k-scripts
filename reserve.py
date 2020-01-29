@@ -27,13 +27,13 @@ def usage(return_code):
     print 'Reserve resources on grid5000. Options:'
     print '  -a: select the admin queue'
     print '  -c: select the clusters (eg., -c "grimani graphene")'
-    print '  -d: set the reservation date (eg., 23-04-23h54 or 23-23h54 or 23h54)'
+    print '  -d: set the reservation date (eg., 04-23-23h54 or 23-23h54 or 23h54)'
     print '  -h: this help'
     print '  -l: display the reservation settings (do not make the reservation)'
     print '  -m: set node names (eg., -m "grimani-1 grimani-6")'
     print '  -n: set the number of nodes'
     print '  -q: connect to the grid5000 API for the queue selection'
-    print '  -t: set the duration of the experiment'
+    print '  -t: set the duration of the experiment (hours)'
     sys.exit(return_code)
 
 def select_queue(cluster_name):
