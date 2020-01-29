@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Jessie environment with g5k tools
-ENVIRONMENT="jessie-x64-min"
+ENVIRONMENT="debian10-x64-min"
 USER_NAME=$(whoami)
 TMP_DIR="/home/$USER_NAME/.g5k-scripts"
 MACHINE_FILE="$TMP_DIR/node2deploy.txt"
